@@ -1,8 +1,8 @@
 # CPUCollector
 
-ahora mismo el collector solo recibe datos de cpu en el formato, donde los valores (sin contar a IP) son float
+agent_cpu_mem.c tiene una función donde extrae los siguientes datos y los guarda en un arreglo de chars (string). La cadena tiene el siguiente formato:
 
-<cpu_label>;<logical_ip>;<cpu_usage>;<cpu_user>;<cpu_system>;<cpu_idle>;<mem_used_mb>;<mem_total_mb>;<swap_total_mb>;<swap_free_mb>
+<cpu_label>;<logical_ip>;<cpu_usage>;<cpu_user>;<cpu_system>;<cpu_idle>;<mem_used_mb>;<mem_total_mb>;<swap_total_mb>;<swap_free_mb>\n
 
 
 Ejemplo
