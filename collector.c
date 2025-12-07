@@ -47,13 +47,17 @@ void handle_sigint(int sig){
 
 // Parsea el mensaje recibido usando sscanf
 int parse_cpu_message(const char *msg, struct host_info *h) {
-    int n = sscanf(msg, "CPU;%31[^;];%f;%f;%f;%f",
+    int n = sscanf(msg, "CPU;%31[^;];%f;%f;%f;%f;%f;%f;%f;%f",
                    h->ip,
                    &h->cpu_usage,
                    &h->cpu_user,
                    &h->cpu_system,
-                   &h->cpu_idle);
-    if (n == 5) {
+                   &h->cpu_idle,
+                   &h->mem_used_mb,
+                   &h->mem_free_mb,
+                   &h->swap_total_mb,
+                   &h->swap_free_mb);
+    if (n == 9) {
         return 0;
     } else {
         return -1;
@@ -64,8 +68,8 @@ void print_table() {
     // Limpia la pantalla
     system("clear");
     // Imprime la tabla de clientes
-    printf("%-20s %-12s %-12s %-12s %-12s\n", "IP", "CPU%", "User%", "System%", "Idle%");
-    printf("%-20s %-12s %-12s %-12s %-12s\n", "--------------------", "----------", "----------", "----------", "----------");
+    printf("%-20s %-12s %-12s %-12s %-12s %-16s %-16s %-16s %-16s\n", "IP", "CPU%", "User%", "System%", "Idle%", "Mem Used(MB)", "Mem Free(MB)", "Swap Total(MB)", "Swap Free(MB)");
+    printf("%-20s %-12s %-12s %-12s %-12s %-16s %-16s %-16s %-16s\n", "--------------------", "----------", "----------", "----------", "----------", "----------------", "----------------", "-----------------", "----------------");
     
     time_t current_time = time(NULL);
     
@@ -76,11 +80,12 @@ void print_table() {
             if (clients[i].is_active && (current_time - clients[i].last_update) > TIMEOUT_SECONDS) {
                 printf("%-20s %-12s\n", clients[i].ip, "without data");
             } else if (clients[i].is_active) {
-                printf("%-20s %-12.2f %-12.2f %-12.2f %-12.2f\n", 
+                printf("%-20s %-12.2f %-12.2f %-12.2f %-12.2f %-16.2f %-16.2f %-16.2f %-16.2f\n", 
                        clients[i].ip, clients[i].cpu_usage, clients[i].cpu_user, 
-                       clients[i].cpu_system, clients[i].cpu_idle);
+                       clients[i].cpu_system, clients[i].cpu_idle, clients[i].mem_used_mb, 
+                       clients[i].mem_free_mb, clients[i].swap_total_mb, clients[i].swap_free_mb);
             } else {
-                printf("%-20s %-12s %-12s %-12s %-12s\n", "----", "----", "----", "----", "----");
+                printf("%-20s %-12s %-12s %-12s %-12s %-16s %-16s %-16s %-16s\n", "----", "----", "----", "----", "----", "----", "----", "----", "----");
             }
         }
     }

@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 char* extract_cpu_mem_info(char* logical_ip) {
 
@@ -58,12 +62,13 @@ char* extract_cpu_mem_info(char* logical_ip) {
     double cpu_user   = (double)user   * 100.0 / total;
     double cpu_system = (double)system * 100.0 / total;
     double cpu_idle   = (double)idle   * 100.0 / total;
+    snprintf(cpu_label, sizeof(cpu_label), "%s", "CPU");
 
 
-
+    
     //----------------- CREAR STRING RESULTADO -----------------
     char *buffer = malloc(300);
-
+    
     snprintf(buffer, 300,
              "%s;%s;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f\n",
              cpu_label, logical_ip,
@@ -71,7 +76,7 @@ char* extract_cpu_mem_info(char* logical_ip) {
              mem_used_mb, mem_total_mb, swap_total_mb, swap_free_mb
     );
     // <cpu_label>;<logical_ip>;<cpu_usage>;<cpu_user>;<cpu_system>;<cpu_idle>;<mem_used_mb>;<mem_total_mb>;<swap_total_mb>;<swap_free_mb>
-
+    
     return buffer;
 }
 
@@ -87,13 +92,36 @@ int main(int argc, char *argv[]) {
     int puerto = atoi(argv[2]);
     char *ip_logica_agente = argv[3];
 
+    struct sockaddr_in cliente;
 
-    char* values=extract_cpu_mem_info(ip_logica_agente);
-    printf("values: %s\n", values);
+    char buffer[1025];
 
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1) {
+        perror("Error al crear el socket");
+        exit(-1);
+    }
 
-    
-    
+    cliente.sin_family = AF_INET;
+    cliente.sin_port = htons(puerto);
+    cliente.sin_addr.s_addr = inet_addr(ip_recolector);
 
+    memset(&(cliente.sin_zero), 0, 8);
+
+    int r = connect(fd, (struct sockaddr *)&cliente, sizeof(struct sockaddr));
+    if (r == -1) {
+        perror("Error al conectar con el recolector");
+        close(fd);
+        exit(-1);
+    }
+
+    while (1) {
+        char* values=extract_cpu_mem_info(ip_logica_agente);
+        send(fd, values, strlen(values), 0);
+        printf("[AGENTE] Enviado: %s", values);
+        sleep(2); // Espera 2 segundos antes de la siguiente lectura
+    }
+
+    close(fd);
     return 0;
 }
