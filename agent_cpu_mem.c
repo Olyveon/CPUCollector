@@ -120,6 +120,8 @@ int main(int argc, char *argv[]) {
         send(fd, values, strlen(values), 0);
         printf("[AGENTE] Enviado: %s", values);
         sleep(2); // Espera 2 segundos antes de la siguiente lectura
+        
+        free(values);
     }
 
     close(fd);
