@@ -78,14 +78,14 @@ void print_table() {
         if (strlen(clients[i].ip) > 0) {
             // Check if client data is stale
             if (clients[i].is_active && (current_time - clients[i].last_update) > TIMEOUT_SECONDS) {
-                printf("%-20s %-12s\n", clients[i].ip, "without data");
+                printf("%-20s %-12s\n", clients[i].ip, "without recent data");
             } else if (clients[i].is_active) {
                 printf("%-20s %-12.2f %-12.2f %-12.2f %-12.2f %-16.2f %-16.2f %-16.2f %-16.2f\n", 
                        clients[i].ip, clients[i].cpu_usage, clients[i].cpu_user, 
                        clients[i].cpu_system, clients[i].cpu_idle, clients[i].mem_used_mb, 
                        clients[i].mem_free_mb, clients[i].swap_total_mb, clients[i].swap_free_mb);
             } else {
-                printf("%-20s %-12s %-12s %-12s %-12s %-16s %-16s %-16s %-16s\n", "----", "----", "----", "----", "----", "----", "----", "----", "----");
+                printf("%-20s %-12s\n", clients[i].ip, "without data");
             }
         }
     }
@@ -107,6 +107,7 @@ void* handle_client(void *arg) {
     setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
     while(1){
+        memset(buffer, 0, sizeof(buffer));
         int bytes = recv(client_fd, buffer, sizeof(buffer)-1, 0);
         
         if (bytes < 0) {
@@ -123,7 +124,8 @@ void* handle_client(void *arg) {
                 continue;
             } else {
                 // Real error
-                printf("[RECOLECTOR] Cliente desconectado\n");
+                printf("[RECOLECTOR] Cliente desconectado sin datos durante demasiado tiempo\n");
+                printf("%d\n", bytes);
                 break;
             }
         }

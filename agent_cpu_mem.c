@@ -5,6 +5,16 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <signal.h>
+
+int fd;
+
+void handle_sigint(int sig){
+    shutdown(fd, SHUT_RDWR);
+    printf("\n[AGENTE] Cerrando socket y saliendo...\n");
+    close(fd);
+    exit(0);
+}
 
 char* extract_cpu_mem_info(char* logical_ip) {
 
@@ -83,6 +93,7 @@ char* extract_cpu_mem_info(char* logical_ip) {
 
 
 int main(int argc, char *argv[]) {
+    signal(SIGINT, handle_sigint);
     if (argc != 4) {
         printf("Uso: %s <ip_recolector> <puerto> <ip_logica_agente>\n", argv[0]);
         return 1;
@@ -96,7 +107,7 @@ int main(int argc, char *argv[]) {
 
     char buffer[1025];
 
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd == -1) {
         perror("Error al crear el socket");
         exit(-1);
