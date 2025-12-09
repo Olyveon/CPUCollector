@@ -15,8 +15,6 @@
 #define MAX_CLIENTS 4
 #define TIMEOUT_SECONDS 5  // Timeout after 5 seconds without data
 
-
-
 int server_fd;
 struct host_info {
     char ip[32];
@@ -32,22 +30,13 @@ struct host_info {
     int is_active;       // Flag to mark if client has data
 };
 
-
-
 // Crea hosts para almacenar la información de los clientes, definido por MAX_CLIENTS
 struct host_info clients[MAX_CLIENTS];
-
-
 
 // Necesitamos un mutex para coordinar
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Contador de clientes activos
-
-
-
 int active_clients = 0;
-
-
 
 // Manejo de señal para cerrar el socket limpiamente
 void handle_sigint(int sig){
@@ -55,8 +44,6 @@ void handle_sigint(int sig){
     close(server_fd);
     exit(0);
 }
-
-
 
 // Parsea el mensaje recibido usando sscanf
 int parse_cpu_message(const char *msg, struct host_info *h) {
@@ -77,8 +64,6 @@ int parse_cpu_message(const char *msg, struct host_info *h) {
     }
 }
 
-
-
 void print_table() {
     // Limpia la pantalla
     system("clear");
@@ -93,6 +78,7 @@ void print_table() {
         if (strlen(clients[i].ip) > 0) {
             // Check if client data is stale
             if (clients[i].is_active && (current_time - clients[i].last_update) > TIMEOUT_SECONDS) {
+                // this happens when the client takes too long to send data, but the connection is still active, this is expected if the process is being slowed down
                 printf("%-20s %-12s\n", clients[i].ip, "without recent data");
             } else if (clients[i].is_active) {
                 printf("%-20s %-12.2f %-12.2f %-12.2f %-12.2f %-16.2f %-16.2f %-16.2f %-16.2f\n", 
@@ -100,14 +86,13 @@ void print_table() {
                        clients[i].cpu_system, clients[i].cpu_idle, clients[i].mem_used_mb, 
                        clients[i].mem_free_mb, clients[i].swap_total_mb, clients[i].swap_free_mb);
             } else {
+                // this happens when the client has suspended its connection or exited the process without correctly handling the closure of the socker, e.g. when ctrl+z is used
                 printf("%-20s %-12s\n", clients[i].ip, "without data");
             }
         }
     }
     printf("\n[Active clients: %d/%d]\n", active_clients, MAX_CLIENTS);
 }
-
-
 
 void* handle_client(void *arg) {
     int client_fd = *(int *)arg;
@@ -123,46 +108,37 @@ void* handle_client(void *arg) {
     tv.tv_usec = 0;
     setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
-
     while(1){
         memset(buffer, 0, sizeof(buffer));
         int bytes = recv(client_fd, buffer, sizeof(buffer)-1, 0);
         
         if (bytes < 0) {
             // Timeout or error
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {// Timeout occurred - client hasn't sent data
+            if (errno == EAGAIN || errno == EWOULDBLOCK) { // Timeout occurred - client hasn't sent data
                 
-                pthread_mutex_lock(&clients_mutex); // ---------------------------- critical zone INIT
+
+                pthread_mutex_lock(&clients_mutex);
                 if (client_index >= 0) {
                     clients[client_index].is_active = 0;
                     print_table();
                 }
-                pthread_mutex_unlock(&clients_mutex); // ---------------------------- critical zone END
-                
+                pthread_mutex_unlock(&clients_mutex);
                 // Continue waiting for data
-<<<<<<< HEAD
                 continue;
+
             } else {
                 // Real error
-                printf("[RECOLECTOR] Cliente desconectado sin datos durante demasiado tiempo\n");
-                printf("%d\n", bytes);
-=======
-                continue; 
+                printf("[RECOLECTOR] Cliente desconectado \n");
 
-            } else { 
-                // Real error - client disconnected naturally witch ctrl + c for example!!
-                printf("[RECOLECTOR] Cliente desconectado\n");
-
-                pthread_mutex_lock(&clients_mutex); // ---------------------------- critical zone INIT
-                if (client_index>=0){
+                pthread_mutex_lock(&clients_mutex);
+                if (client_index >= 0) {
                     memset(&clients[client_index], 0, sizeof(struct host_info));
                     active_clients--;
                     print_table();
                 }
-                pthread_mutex_unlock(&clients_mutex); // ---------------------------- critical zone END
+                pthread_mutex_unlock(&clients_mutex);
 
                 close(client_fd);
->>>>>>> 70001376bd4c4e64dcaf0f6c124f090d7682647d
                 break;
             }
         }
@@ -171,18 +147,13 @@ void* handle_client(void *arg) {
             printf("[RECOLECTOR] Cliente desconectado\n");
             
             // Remueve el cliente de la tabla en caso de desconexion y para evitar errores de sincronizacion usa mutex
-
-            pthread_mutex_lock(&clients_mutex); // ---------------------------- critical zone INIT
-
+            pthread_mutex_lock(&clients_mutex);
             if (client_index >= 0) {
-
                 memset(&clients[client_index], 0, sizeof(struct host_info));
-                if (active_clients>0){
-                    active_clients--;
-                }
+                active_clients--;
             }
-
-            pthread_mutex_unlock(&clients_mutex); // --------------------------- critical zone END
+            pthread_mutex_unlock(&clients_mutex);
+            
             close(client_fd);
             break;
         }
@@ -190,11 +161,11 @@ void* handle_client(void *arg) {
         buffer[bytes] = '\0';
         memset(&host, 0, sizeof(host));
 
-        if (parse_cpu_message(buffer, &host) == 0) { // successful case
-
-            pthread_mutex_lock(&clients_mutex); // ---------------------------- critical zone INIT
+        if (parse_cpu_message(buffer, &host) == 0) {
+            pthread_mutex_lock(&clients_mutex);
+            
             // Find or assign slot for this client
-            if (client_index == -1) { 
+            if (client_index == -1) {
                 for (int i = 0; i < MAX_CLIENTS; i++) {
                     if (strlen(clients[i].ip) == 0) {
                         client_index = i;
@@ -204,21 +175,19 @@ void* handle_client(void *arg) {
                 }
             }
             
-            // Update client data if we have an available slot
-            if (client_index >= 0) { 
+            // Update client data if we have a slot
+            if (client_index >= 0) {
                 memcpy(&clients[client_index], &host, sizeof(struct host_info));
                 clients[client_index].last_update = time(NULL);
                 clients[client_index].is_active = 1;
                 printf("[RECOLECTOR] Datos recibidos de %s\n", host.ip);
                 print_table();
-
             } else {
-                printf("[RECOLECTOR] Max clients (%d) reached. Ignoring connection from %s\n", MAX_CLIENTS, host.ip);
+                printf("[RECOLECTOR] Max clients (%d) reached. Ignoring connection from %s\n", 
+                       MAX_CLIENTS, host.ip);
             }
             
-            pthread_mutex_unlock(&clients_mutex); //-------------------------- critical zone END
-
-
+            pthread_mutex_unlock(&clients_mutex);
         } else {
             printf("[RECOLECTOR] Formato de mensaje inválido\n");
         }
@@ -230,10 +199,7 @@ void* handle_client(void *arg) {
     pthread_exit(NULL);
 }
 
-
-
 int main(int argc, char *argv[]){
-    
     struct sockaddr_in server, client;
     signal(SIGINT, handle_sigint);
     
